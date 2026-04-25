@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>寵物盟友 (Pet Ally) - 純 HTML 版</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #FFFBF8; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #fed7aa; border-radius: 10px; }
+        .active-filter { background-color: #f97316; color: white; border-color: #f97316; box-shadow: 0 10px 15px -3px rgba(251, 146, 60, 0.2); }
+        .active-category { background-color: #f97316; color: white; border-color: #f97316; }
+    </style>
+</head>
+<body class="selection:bg-orange-200">
+    <div id="app">
+        <!-- Decorative Background -->
+        <div class="fixed inset-0 -z-10 overflow-hidden pointer-events-none opacity-[0.03]">
+            <svg class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                <pattern id="paw-pattern" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
+                    <path d="M50 30c-5 0-10 5-10 10s5 10 10 10 10-5 10-10-5-10-10-10zm-20 20c-5 0-10 5-10 10s5 10 10 10 10-5 10-10-5-10-10-10zm40 0c-5 0-10 5-10 10s5 10 10 10 10-5 10-10-5-10-10-10zm-20 20c-5 0-10 5-10 10s5 10 10 10 10-5 10-10-5-10-10-10z" fill="#f97316" />
+                </pattern>
+                <rect width="100%" height="100%" fill="url(#paw-pattern)" />
+            </svg>
+        </div>
+
+        <!-- Header -->
+        <header class="sticky top-0 z-40 bg-white/70 backdrop-blur-xl border-b border-orange-100">
+            <div class="max-w-2xl mx-auto px-6 h-20 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="bg-orange-500 p-2.5 rounded-2xl shadow-xl shadow-orange-200 rotate-3">
+                        <i data-lucide="paw-print" class="text-white w-7 h-7"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-black tracking-tighter text-gray-900 leading-none">寵物盟友</h1>
+                        <span class="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em]">Pet Ally Community</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main -->
+        <main class="max-w-2xl mx-auto px-6 py-8 pb-32">
+            <!-- Filter Section -->
+            <div class="space-y-6 mb-8">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex gap-2" id="status-filters">
+                        <button onclick="setFilter('all')" class="status-btn filter-all active-filter px-4 py-2 rounded-xl text-sm font-black border bg-white text-gray-400 border-gray-100">全部</button>
+                        <button onclick="setFilter('unread')" class="status-btn filter-unread px-4 py-2 rounded-xl text-sm font-black border bg-white text-gray-400 border-gray-100">只看未讀</button>
+                        <button onclick="setFilter('read')" class="status-btn filter-read px-4 py-2 rounded-xl text-sm font-black border bg-white text-gray-400 border-gray-100">只看已讀</button>
+                    </div>
+                    
+                    <div class="flex gap-4 px-4 py-2 bg-white rounded-2xl border border-orange-50 text-[11px] font-black uppercase tracking-wider text-gray-400">
+                        <div class="flex items-center gap-1.5 grayscale opacity-70">
+                            <div class="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
+                            <span>全部 <span id="count-all">0</span></span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <div class="w-1.5 h-1.5 rounded-full bg-orange-400"></div>
+                            <span class="text-orange-500">未讀 <span id="count-unread">0</span></span>
+                        </div>
+                        <div class="flex items-center gap-1.5 text-gray-400">
+                            <div class="w-1.5 h-1.5 rounded-full bg-yellow-400"></div>
+                            <span class="text-yellow-600">已讀 <span id="count-read">0</span></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Category Filters -->
+                <div class="flex items-center gap-3 overflow-x-auto pb-2 custom-scrollbar" id="category-filters">
+                    <button onclick="setCategory('all')" class="cat-btn cat-all active-category flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all border bg-white text-gray-400 border-gray-100">
+                        <i data-lucide="home" class="w-3.5 h-3.5"></i>
+                        <span>全部類型</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Feed -->
+            <div id="posts-list" class="space-y-8">
+                <!-- Posts will be rendered here -->
+            </div>
+        </main>
+
+        <!-- Floating Add Button -->
+        <button onclick="openModal()" class="fixed bottom-8 right-8 z-50 bg-gray-900 text-white p-5 rounded-[24px] shadow-2xl hover:scale-110 active:scale-95 transition-transform">
+            <i data-lucide="plus-circle" class="w-8 h-8"></i>
+        </button>
+
+        <!-- Modal -->
+        <div id="modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+            <div class="bg-white w-full max-w-xl rounded-[40px] overflow-hidden shadow-2xl border-t-4 border-orange-500">
+                <div class="p-8 border-b border-gray-50 flex items-center justify-between">
+                    <h3 class="font-black text-2xl">分享毛孩趣事</h3>
+                    <button onclick="closeModal()" class="p-3 bg-gray-50 rounded-2xl text-gray-400 hover:bg-gray-100"><i data-lucide="x"></i></button>
+                </div>
+                <div class="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                    <div class="space-y-3">
+                        <label class="text-xs font-black text-gray-400 uppercase tracking-[0.2em] ml-2">選擇寵物類型</label>
+                        <div class="flex flex-wrap gap-2" id="modal-category-picker">
+                            <!-- Categories generated by JS -->
+                        </div>
+                    </div>
+                    <textarea id="post-content" placeholder="今天你的愛寵發生了什麼有趣的事？" class="w-full h-40 p-6 bg-orange-50/30 rounded-[32px] focus:outline-none focus:ring-4 focus:ring-orange-500/10 resize-none text-lg leading-relaxed"></textarea>
+                    <!-- Small Image Upload Simulation (just a text label since we're keeping it simple) -->
+                    <div class="space-y-3">
+                        <label class="text-xs font-black text-gray-400 uppercase tracking-[0.2em] ml-2">圖片內容 (可選 URL)</label>
+                        <input type="text" id="post-image" placeholder="請輸入圖片連結..." class="w-full p-4 bg-orange-50/30 rounded-2xl border-none focus:ring-4 focus:ring-orange-500/10">
+                    </div>
+                </div>
+                <div class="p-8 bg-gray-50 flex gap-4">
+                    <button onclick="submitPost()" class="flex-1 py-4 bg-orange-500 text-white rounded-2xl font-black shadow-xl shadow-orange-200 hover:bg-orange-600 transition-all">發佈貼文</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script shadow>
+        // --- Constants & State ---
+        const PET_CATEGORIES = [
+            { id: 'mammal', label: '哺乳類', icon: 'cat' },
+            { id: 'bird', label: '飛鳥類', icon: 'bird' },
+            { id: 'reptile', label: '爬蟲類', icon: 'bug' },
+            { id: 'fish', label: '魚類', icon: 'fish' },
+            { id: 'other', label: '其他', icon: 'rat' },
+        ];
+
+        let currentFilter = 'all';
+        let currentCategory = 'all';
+        let selectedModalCategory = 'mammal';
+
+        // --- Core Functions (Requirement 6) ---
+
+        /**
+         * 儲存資料到 localStorage
+         * @param {Object} newRecord - 新的贴文紀錄
+         */
+        function saveData(newRecord) {
+            const records = loadData();
+            records.unshift(newRecord);
+            localStorage.setItem('records', JSON.stringify(records));
+        }
+
+        /**
+         * 從 localStorage 讀取資料
+         * @returns {Array} - 贴文紀錄列表
+         */
+        function loadData() {
+            try {
+                return JSON.parse(localStorage.getItem('records')) || [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        /**
+         * 渲染贴文列表到 UI
+         */
+        function renderList() {
+            const records = loadData();
+            const listElement = document.getElementById('posts-list');
+            
+            // Calculate static counts before filtering
+            const countAll = records.length;
+            const countUnread = records.filter(p => p.status === 'active').length;
+            const countRead = records.filter(p => p.status === 'done').length;
+
+            document.getElementById('count-all').innerText = countAll;
+            document.getElementById('count-unread').innerText = countUnread;
+            document.getElementById('count-read').innerText = countRead;
+
+            // Sort: active first, then date
+            const sortedRecords = records.sort((a, b) => {
+                const statusA = a.status || 'active';
+                const statusB = b.status || 'active';
+                if (statusA !== statusB) {
+                    return statusA === 'active' ? -1 : 1;
+                }
+                return new Date(b.createdAt) - new Date(a.createdAt);
+            });
+
+            // Filter
+            const filtered = sortedRecords.filter(p => {
+                const statusMatch = currentFilter === 'all' || 
+                    (currentFilter === 'unread' && p.status === 'active') || 
+                    (currentFilter === 'read' && p.status === 'done');
+                const categoryMatch = currentCategory === 'all' || p.category === currentCategory;
+                return statusMatch && categoryMatch;
+            });
+
+            if (filtered.length === 0) {
+                listElement.innerHTML = `
+                    <div class="text-center py-24 bg-white/50 backdrop-blur-sm rounded-[40px] border-2 border-dashed border-orange-200">
+                        <i data-lucide="paw-print" class="mx-auto text-orange-100 w-20 h-20 mb-8"></i>
+                        <p class="text-gray-400 font-bold text-lg">沒有符合條件的貼文。</p>
+                    </div>
+                `;
+            } else {
+                listElement.innerHTML = filtered.map(post => {
+                    const isDone = post.status === 'done';
+                    const category = PET_CATEGORIES.find(c => c.id === post.category);
+                    const formattedDate = new Date(post.createdAt).toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    
+                    return `
+                    <div class="rounded-[40px] shadow-sm border border-orange-50 overflow-hidden mb-8 transition-all duration-500 ${isDone ? 'bg-yellow-50/80 shadow-none' : 'bg-white hover:shadow-xl hover:shadow-orange-100/50'}">
+                        <div class="p-6 flex items-center justify-between">
+                            <div class="flex items-center gap-4">
+                                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=${post.id}" class="w-12 h-12 rounded-2xl bg-orange-100 border-2 border-white">
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <h4 class="font-black text-gray-900 text-lg">寵友 #${post.id.slice(-4)}</h4>
+                                        ${category ? `
+                                            <div class="flex items-center gap-1 px-2 py-0.5 bg-orange-50 text-orange-500 text-[10px] font-black rounded-full border border-orange-100">
+                                                <i data-lucide="${category.icon}" class="w-2.5 h-2.5"></i>
+                                                <span>${category.label}</span>
+                                            </div>
+                                        ` : ''}
+                                        ${isDone ? `<span class="px-2 py-0.5 bg-gray-100 text-gray-400 text-[10px] font-black rounded-full border border-gray-200 uppercase">[已讀]</span>` : ''}
+                                    </div>
+                                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">${formattedDate}</p>
+                                </div>
+                            </div>
+                            <button onclick="toggleStatus('${post.id}')" class="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-black transition-all ${isDone ? 'bg-gray-100 text-gray-400' : 'bg-orange-50 text-orange-500 hover:bg-orange-500 hover:text-white border border-orange-100'}">
+                                <i data-lucide="${isDone ? 'check-circle-2' : 'circle'}" class="w-3.5 h-3.5"></i>
+                                <span>${isDone ? '已讀' : '未讀'}</span>
+                            </button>
+                        </div>
+                        <div class="px-8 pb-4">
+                            <p class="text-gray-600 text-lg leading-relaxed">${post.content}</p>
+                        </div>
+                        ${post.image ? `<div class="px-6 pb-6"><img src="${post.image}" class="w-full h-auto max-h-96 object-cover rounded-[32px]"></div>` : ''}
+                    </div>
+                    `;
+                }).join('');
+            }
+            lucide.createIcons();
+        }
+
+        // --- Helper Logic ---
+
+        function setFilter(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.status-btn').forEach(btn => btn.classList.remove('active-filter'));
+            document.querySelector(`.filter-${filter}`).classList.add('active-filter');
+            renderList();
+        }
+
+        function setCategory(cat) {
+            currentCategory = cat;
+            document.querySelectorAll('.cat-btn').forEach(btn => btn.classList.remove('active-category'));
+            document.querySelector(`.cat-${cat}`).classList.add('active-category');
+            renderList();
+        }
+
+        function toggleStatus(id) {
+            const records = loadData();
+            const updated = records.map(p => {
+                if (p.id === id) {
+                    return { ...p, status: p.status === 'done' ? 'active' : 'done' };
+                }
+                return p;
+            });
+            localStorage.setItem('records', JSON.stringify(updated));
+            renderList();
+        }
+
+        function openModal() {
+            document.getElementById('modal').classList.remove('hidden');
+            renderModalCategories();
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.add('hidden');
+        }
+
+        function renderModalCategories() {
+            const picker = document.getElementById('modal-category-picker');
+            picker.innerHTML = PET_CATEGORIES.map(cat => `
+                <button onclick="selectModalCategory('${cat.id}')" class="modal-cat-btn m-cat-${cat.id} flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-black transition-all border ${selectedModalCategory === cat.id ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-400 border-gray-100'}">
+                    <i data-lucide="${cat.icon}" class="w-4 h-4"></i>
+                    <span>${cat.label}</span>
+                </button>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function selectModalCategory(id) {
+            selectedModalCategory = id;
+            document.querySelectorAll('.modal-cat-btn').forEach(btn => {
+                const isSelected = btn.classList.contains(`m-cat-${id}`);
+                btn.className = `modal-cat-btn m-cat-${isSelected ? id : ''} flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-black transition-all border ${isSelected ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-400 border-gray-100'}`;
+            });
+            renderModalCategories(); // Re-render for icon updates if needed, though class swap is enough for css
+        }
+
+        function submitPost() {
+            const content = document.getElementById('post-content').value;
+            const image = document.getElementById('post-image').value;
+            
+            if (!content.trim()) return alert('請輸入內容');
+
+            const newRecord = {
+                id: Date.now() + "_" + Math.random().toString(36).slice(2,6),
+                createdAt: new Date().toISOString(),
+                content: content,
+                image: image,
+                category: selectedModalCategory,
+                status: "active"
+            };
+
+            saveData(newRecord);
+            document.getElementById('post-content').value = '';
+            document.getElementById('post-image').value = '';
+            closeModal();
+            renderList();
+        }
+
+        function init() {
+            // Setup global category filter buttons
+            const catFilters = document.getElementById('category-filters');
+            PET_CATEGORIES.forEach(cat => {
+                const btn = document.createElement('button');
+                btn.onclick = () => setCategory(cat.id);
+                btn.className = `cat-btn cat-${cat.id} flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all border bg-white text-gray-400 border-gray-100`;
+                btn.innerHTML = `<i data-lucide="${cat.icon}" class="w-3.5 h-3.5"></i><span>${cat.label}</span>`;
+                catFilters.appendChild(btn);
+            });
+
+            renderList();
+            lucide.createIcons();
+        }
+
+        init();
+    </script>
+</body>
+</html>
