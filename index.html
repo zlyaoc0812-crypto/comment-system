@@ -120,7 +120,23 @@
         </div>
     </div>
 
-    <script shadow>
+    <script>
+        // --- Google Sheet 同步設定 ---
+        const APPS_SCRIPT_URL = "PASTE_YOUR_APPS_SCRIPT_URL_HERE";
+
+        /**
+         * 將 payload 同步到 Google Sheet（僅在 URL 已設定時運作）
+         * @param {Object} payload - 要傳送的資料，例如 { action: "create", record: {...} }
+         */
+        function syncToSheet(payload) {
+            if (APPS_SCRIPT_URL === "https://script.google.com/macros/s/AKfycbyJm1Vqblx7i6gScb3UWwEg47hwZBdzBavdfQLoSPwPBm1VV0Tc1gU_D-C-uF9AGNYHYw/exec") return;
+            fetch(APPS_SCRIPT_URL, {
+                method: "POST",
+                headers: { "Content-Type": "text/plain" },
+                body: JSON.stringify(payload)
+            }).catch(err => console.warn("Sync to sheet failed:", err));
+        }
+
         // --- Constants & State ---
         const PET_CATEGORIES = [
             { id: 'mammal', label: '哺乳類', icon: 'cat' },
@@ -257,15 +273,28 @@
             renderList();
         }
 
+        /**
+         * 切換貼文的已讀/未讀狀態
+         * 更新 localStorage 並同步至 Google Sheet
+         */
         function toggleStatus(id) {
             const records = loadData();
+            const record = records.find(p => p.id === id);
+            if (!record) return;
+
+            const newStatus = record.status === 'done' ? 'active' : 'done';
             const updated = records.map(p => {
                 if (p.id === id) {
-                    return { ...p, status: p.status === 'done' ? 'active' : 'done' };
+                    return { ...p, status: newStatus };
                 }
                 return p;
             });
+
             localStorage.setItem('records', JSON.stringify(updated));
+            
+            // 同步修改至 Google Sheet
+            syncToSheet({ action: "update", id: id, changes: { status: newStatus } });
+
             renderList();
         }
 
@@ -298,6 +327,9 @@
             renderModalCategories(); // Re-render for icon updates if needed, though class swap is enough for css
         }
 
+        /**
+         * 新增貼文：寫入 localStorage 並同步至 Google Sheet
+         */
         function submitPost() {
             const content = document.getElementById('post-content').value;
             const image = document.getElementById('post-image').value;
@@ -314,6 +346,10 @@
             };
 
             saveData(newRecord);
+
+            // 同步新增至 Google Sheet
+            syncToSheet({ action: "create", record: newRecord });
+
             document.getElementById('post-content').value = '';
             document.getElementById('post-image').value = '';
             closeModal();
