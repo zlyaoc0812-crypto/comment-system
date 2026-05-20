@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>寵物盟友 (Pet Ally) - 純 HTML 版</title>
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
@@ -39,6 +37,16 @@
                         <h1 class="text-2xl font-black tracking-tighter text-gray-900 leading-none">寵物盟友</h1>
                         <span class="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em]">Pet Ally Community</span>
                     </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="handleAISummary()" id="aiBtn" class="flex items-center gap-2 bg-zinc-800 text-zinc-100 px-4 py-2 rounded-full font-medium hover:bg-zinc-700 transition-colors active:scale-95 border border-zinc-700 disabled:opacity-50">
+                        <i data-lucide="sparkles" class="w-4 h-4"></i>
+                        <span id="aiBtnText">AI 摘要</span>
+                    </button>
+                    <button onclick="openModal()" class="flex items-center gap-2 bg-orange-500 text-white px-4 py-2 rounded-full font-medium hover:bg-orange-600 transition-colors active:scale-95 shadow-md">
+                        <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                        <span>我要吐槽</span>
+                    </button>
                 </div>
             </div>
         </header>
@@ -110,12 +118,38 @@
     <script>
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwc_UGD86WLmpkjZaDsiFLDdPP-BJr4czjNUmsX4zR7KqBtNypM5JNB9mpF3k0QF0MU/exec";
 
+    // 將前端小寫欄位名轉換為 Sheet 大寫欄位名，確保同步寫入正確
+    function toSheetFields(record) {
+        const mapping = {
+            id: 'ID',
+            createdAt: 'CreatedAt',
+            content: 'Content',
+            image: 'Image',
+            category: 'Category',
+            likes: 'Likes',
+            status: 'Status'
+        };
+        const converted = {};
+        for (const [key, value] of Object.entries(record)) {
+            const sheetKey = mapping[key] || key;
+            converted[sheetKey] = value;
+        }
+        return converted;
+    }
+
     async function syncToSheet(payload) {
-        if (APPS_SCRIPT_URL === "PASTE_YOUR_APPS_SCRIPT_URL_HERE") {
+        if (APPS_SCRIPT_URL.includes("PASTE_YOUR_APPS_SCRIPT_URL_HERE")) {
             console.warn("🚫 APPS_SCRIPT_URL 尚未設定，略過同步");
             return;
         }
         try {
+            // 寫入時轉換欄位名
+            if (payload.action === 'create' && payload.record) {
+                payload.record = toSheetFields(payload.record);
+            } else if (payload.action === 'update' && payload.changes) {
+                payload.changes = toSheetFields(payload.changes);
+            }
+
             const res = await fetch(APPS_SCRIPT_URL, {
                 method: "POST",
                 headers: { "Content-Type": "text/plain" },
@@ -140,22 +174,50 @@
     let currentCategory = 'all';
     let selectedModalCategory = 'mammal';
 
-    function saveData(newRecord) {
-        const records = loadData();
-        records.unshift(newRecord);
-        localStorage.setItem('records', JSON.stringify(records));
+    // 將 Sheet 回傳的大寫欄位轉為前端小寫欄位
+    function normalizeRecord(record) {
+        return {
+            id: record.id || record.ID || "",
+            createdAt: record.createdAt || record.CreatedAt || "",
+            content: record.content || record.Content || "",
+            category: record.category || record.Category || "other",
+            likes: Number(record.likes !== undefined ? record.likes : (record.Likes || 0)),
+            status: record.status || record.Status || "active"
+        };
     }
 
-    function loadData() {
+    async function fetchRecordsFromSheet() {
+        if (APPS_SCRIPT_URL.includes("PASTE")) return null;
         try {
-            return JSON.parse(localStorage.getItem('records')) || [];
+            const res = await fetch(APPS_SCRIPT_URL);
+            const data = await res.json();
+            return Array.isArray(data.records) ? data.records.map(normalizeRecord) : null;
         } catch (e) {
-            return [];
+            console.warn("從 Sheet 讀取失敗", e);
+            return null;
         }
     }
 
-    function renderList() {
-        const records = loadData();
+    async function loadData() {
+        const remote = await fetchRecordsFromSheet();
+        if (remote) {
+            localStorage.setItem("records", JSON.stringify(remote));
+            return remote;
+        }
+        const data = localStorage.getItem("records");
+        return data ? JSON.parse(data) : [];
+    }
+
+    async function saveData(newRecord) {
+        const records = await loadData();
+        records.unshift(newRecord);
+        localStorage.setItem("records", JSON.stringify(records));
+        syncToSheet({ action: "create", record: newRecord });
+        await renderList(records);
+    }
+
+    async function renderList(recordsOverride) {
+        const records = recordsOverride || await loadData();
         const listElement = document.getElementById('posts-list');
         
         const countAll = records.length;
@@ -221,6 +283,16 @@
                         <p class="text-gray-600 text-lg leading-relaxed">${post.content}</p>
                     </div>
                     ${post.image ? `<div class="px-6 pb-6"><img src="${post.image}" class="w-full h-auto max-h-96 object-cover rounded-[32px]"></div>` : ''}
+                    <div class="px-8 pb-4 flex items-center justify-between">
+                        <div class="flex items-center gap-2 text-gray-400">
+                            <i data-lucide="heart" class="w-4 h-4 text-red-400"></i>
+                            <span class="text-sm font-bold">${post.likes || 0}</span>
+                        </div>
+                        <button onclick="handleLike('${post.id}')" class="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-black bg-pink-50 text-pink-500 hover:bg-pink-500 hover:text-white border border-pink-100 transition-all">
+                            <i data-lucide="thumbs-up" class="w-3.5 h-3.5"></i>
+                            <span>Like</span>
+                        </button>
+                    </div>
                 </div>
                 `;
             }).join('');
@@ -228,22 +300,22 @@
         lucide.createIcons();
     }
 
-    function setFilter(filter) {
+    async function setFilter(filter) {
         currentFilter = filter;
         document.querySelectorAll('.status-btn').forEach(btn => btn.classList.remove('active-filter'));
         document.querySelector(`.filter-${filter}`).classList.add('active-filter');
-        renderList();
+        await renderList();
     }
 
-    function setCategory(cat) {
+    async function setCategory(cat) {
         currentCategory = cat;
         document.querySelectorAll('.cat-btn').forEach(btn => btn.classList.remove('active-category'));
         document.querySelector(`.cat-${cat}`).classList.add('active-category');
-        renderList();
+        await renderList();
     }
 
     async function toggleStatus(id) {
-        const records = loadData();
+        const records = await loadData();
         const record = records.find(p => p.id === id);
         if (!record) return;
 
@@ -252,7 +324,18 @@
         localStorage.setItem('records', JSON.stringify(updated));
 
         await syncToSheet({ action: "update", id: id, changes: { status: newStatus } });
-        renderList();
+        await renderList(updated);
+    }
+
+    async function handleLike(id) {
+        const records = await loadData();
+        const index = records.findIndex(r => r.id === id);
+        if (index !== -1) {
+            records[index].likes = (records[index].likes || 0) + 1;
+            localStorage.setItem("records", JSON.stringify(records));
+            syncToSheet({ action: "update", id: id, changes: { likes: records[index].likes } });
+            await renderList(records);
+        }
     }
 
     function openModal() {
@@ -295,19 +378,54 @@
             content: content,
             image: image,
             category: selectedModalCategory,
+            likes: 0,
             status: "active"
         };
 
-        saveData(newRecord);
-        await syncToSheet({ action: "create", record: newRecord });
+        await saveData(newRecord);
 
         document.getElementById('post-content').value = '';
         document.getElementById('post-image').value = '';
         closeModal();
-        renderList();
     }
 
-    function init() {
+    // AI 摘要相關
+    async function askAI(userPrompt) {
+        const res = await fetch(APPS_SCRIPT_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain" },
+            body: JSON.stringify({ action: "askAI", prompt: userPrompt })
+        });
+        const data = await res.json();
+        return data.result || data.error || "AI 冇回應";
+    }
+
+    async function handleAISummary() {
+        const btn = document.getElementById('aiBtn');
+        const text = document.getElementById('aiBtnText');
+        btn.disabled = true;
+        text.textContent = '思考中...';
+        try {
+            const records = await loadData();
+            if (records.length === 0) {
+                alert('未有吐槽資料可以摘要');
+                return;
+            }
+            const summaryInput = records.slice(0, 30).map(r =>
+                `[${r.category}] ${r.content}`
+            ).join('\n');
+            const prompt = '以下是班級吐槽牆嘅留言。請用繁體中文，用 3-5 句概括同學最關心嘅問題、情緒同有冇明顯 patterns:\n\n' + summaryInput;
+            const result = await askAI(prompt);
+            alert(result);
+        } catch (e) {
+            alert('AI 出錯：' + e.message);
+        } finally {
+            btn.disabled = false;
+            text.textContent = 'AI 摘要';
+        }
+    }
+
+    async function init() {
         const catFilters = document.getElementById('category-filters');
         PET_CATEGORIES.forEach(cat => {
             const btn = document.createElement('button');
@@ -316,11 +434,14 @@
             btn.innerHTML = `<i data-lucide="${cat.icon}" class="w-3.5 h-3.5"></i><span>${cat.label}</span>`;
             catFilters.appendChild(btn);
         });
-        renderList();
+        await renderList();
         lucide.createIcons();
     }
 
-    init();
-</script>
+    window.onload = async () => {
+        await renderList();
+        lucide.createIcons();
+    };
+    </script>
 </body>
 </html>
