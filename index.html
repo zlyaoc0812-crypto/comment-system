@@ -116,40 +116,16 @@
     </div>
 
     <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyFMq2HPruKQn-TQBDNQ4fdJNr2taKLDQdL8yHXmNg9OuDLFT4J2smjmPnEwoviSaE3/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/library/d/1gKITdAena3ACttw-Ol7t2dFEsKU-bcUsEQ4cPPhzT-AEUIGzY5yehv3E/6";
 
-    // 將前端小寫欄位名轉換為 Sheet 大寫欄位名，確保同步寫入正確
-    function toSheetFields(record) {
-        const mapping = {
-            id: 'ID',
-            createdAt: 'CreatedAt',
-            content: 'Content',
-            image: 'Image',
-            category: 'Category',
-            likes: 'Likes',
-            status: 'Status'
-        };
-        const converted = {};
-        for (const [key, value] of Object.entries(record)) {
-            const sheetKey = mapping[key] || key;
-            converted[sheetKey] = value;
-        }
-        return converted;
-    }
-
+    // 同步到 Sheet 時直接傳送小寫欄位，不再轉換
     async function syncToSheet(payload) {
         if (APPS_SCRIPT_URL.includes("PASTE_YOUR_APPS_SCRIPT_URL_HERE")) {
             console.warn("🚫 APPS_SCRIPT_URL 尚未設定，略過同步");
             return;
         }
         try {
-            // 寫入時轉換欄位名
-            if (payload.action === 'create' && payload.record) {
-                payload.record = toSheetFields(payload.record);
-            } else if (payload.action === 'update' && payload.changes) {
-                payload.changes = toSheetFields(payload.changes);
-            }
-
+            // 已確保 record / changes 的鍵都是小寫，直接傳送
             const res = await fetch(APPS_SCRIPT_URL, {
                 method: "POST",
                 headers: { "Content-Type": "text/plain" },
@@ -174,7 +150,7 @@
     let currentCategory = 'all';
     let selectedModalCategory = 'mammal';
 
-    // 將 Sheet 回傳的大寫欄位轉為前端小寫欄位
+    // 將 Sheet 回傳的資料標準化（兼容大小寫，但主要使用小寫）
     function normalizeRecord(record) {
         return {
             id: record.id || record.ID || "",
